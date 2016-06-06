@@ -30,6 +30,7 @@
   };
 
   var app = {
+    hasRequestPending: false,
     isLoading: true,
     visibleCards: {},
     selectedCities: [],
@@ -39,9 +40,6 @@
     addDialog: document.querySelector('.dialog-container'),
     daysOfWeek: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   };
-
-
-
 
 
   /*****************************************************************************
@@ -58,7 +56,6 @@
   document.getElementById('butAdd').addEventListener('click', function() {
     // Open/show the add new city dialog
     app.toggleAddDialog(true);
-
   });
 
   document.getElementById('butAddCity').addEventListener('click', function() {
@@ -69,8 +66,8 @@
     var label = selected.textContent;
     app.getForecast(key, label);
     app.selectedCities.push({key: key, label: label});
+    app.saveSelectedCities();
     app.toggleAddDialog(false);
-      app.saveSelectedCities();
   });
 
   document.getElementById('butAddCancel').addEventListener('click', function() {
@@ -108,20 +105,20 @@
     }
     card.querySelector('.description').textContent = data.currently.summary;
     card.querySelector('.date').textContent =
-      new Date(data.currently.time * 1000);
+        new Date(data.currently.time * 1000);
     card.querySelector('.current .icon').classList.add(data.currently.icon);
     card.querySelector('.current .temperature .value').textContent =
-      Math.round(data.currently.temperature);
+        Math.round(data.currently.temperature);
     card.querySelector('.current .feels-like .value').textContent =
-      Math.round(data.currently.apparentTemperature);
+        Math.round(data.currently.apparentTemperature);
     card.querySelector('.current .precip').textContent =
-      Math.round(data.currently.precipProbability * 100) + '%';
+        Math.round(data.currently.precipProbability * 100) + '%';
     card.querySelector('.current .humidity').textContent =
-      Math.round(data.currently.humidity * 100) + '%';
+        Math.round(data.currently.humidity * 100) + '%';
     card.querySelector('.current .wind .value').textContent =
-      Math.round(data.currently.windSpeed);
+        Math.round(data.currently.windSpeed);
     card.querySelector('.current .wind .direction').textContent =
-      data.currently.windBearing;
+        data.currently.windBearing;
     var nextDays = card.querySelectorAll('.future .oneday');
     var today = new Date();
     today = today.getDay();
@@ -130,12 +127,12 @@
       var daily = data.daily.data[i];
       if (daily && nextDay) {
         nextDay.querySelector('.date').textContent =
-          app.daysOfWeek[(i + today) % 7];
+            app.daysOfWeek[(i + today) % 7];
         nextDay.querySelector('.icon').classList.add(daily.icon);
         nextDay.querySelector('.temp-high .value').textContent =
-          Math.round(daily.temperatureMax);
+            Math.round(daily.temperatureMax);
         nextDay.querySelector('.temp-low .value').textContent =
-          Math.round(daily.temperatureMin);
+            Math.round(daily.temperatureMin);
       }
     }
     if (app.isLoading) {
@@ -156,7 +153,6 @@
   app.getForecast = function(key, label) {
     var url = 'https://publicdata-weather.firebaseio.com/';
     url += key + '.json';
-
     if ('caches' in window) {
       caches.match(url).then(function(response) {
         if (response) {
@@ -177,12 +173,12 @@
     app.hasRequestPending = true;
     var request = new XMLHttpRequest();
     request.onreadystatechange = function() {
-      app.hasRequestPending = false;
       if (request.readyState === XMLHttpRequest.DONE) {
         if (request.status === 200) {
           var response = JSON.parse(request.response);
           response.key = key;
           response.label = label;
+          app.hasRequestPending = false;
           app.updateForecastCard(response);
         }
       }
@@ -199,73 +195,41 @@
     });
   };
 
-  var fakeForecast = {
-    key: 'newyork',
-    label: 'New York, NY',
-    currently: {
-      time: 1453489481,
-      summary: 'Clear',
-      icon: 'partly-cloudy-day',
-      temperature: 30,
-      apparentTemperature: 21,
-      precipProbability: 0.80,
-      humidity: 0.17,
-      windBearing: 125,
-      windSpeed: 1.52
-    },
-    daily: {
-      data: [
-        {icon: 'clear-day', temperatureMax: 36, temperatureMin: 31},
-        {icon: 'rain', temperatureMax: 34, temperatureMin: 28},
-        {icon: 'snow', temperatureMax: 31, temperatureMin: 17},
-        {icon: 'sleet', temperatureMax: 38, temperatureMin: 31},
-        {icon: 'fog', temperatureMax: 40, temperatureMin: 36},
-        {icon: 'wind', temperatureMax: 35, temperatureMin: 29},
-        {icon: 'partly-cloudy-day', temperatureMax: 42, temperatureMin: 40}
-      ]
-    }
+  // Save list of cities to localStorage, see note below about localStorage.
+  app.saveSelectedCities = function() {
+    var selectedCities = JSON.stringify(app.selectedCities);
+    // IMPORTANT: See notes about use of localStorage.
+    localStorage.selectedCities = selectedCities;
   };
-  // Uncomment the line below to test with the provided fake data
-  // app.updateForecastCard(fakeForecast);
 
   /************************************************************************
-    *
-    * Code required to start the app
-    *
-    * NOTE: To simplify this codelab, we've used localStorage.
-    *   localStorage is a synchronous API and has serious performance
-    *   implications. It should not be used in production applications!
-    *   Instead, check out IDB (https://www.npmjs.com/package/idb) or
-    *   SimpleDB (https://gist.github.com/inexorabletash/c8069c042b734519680c)
-    ************************************************************************/
+   *
+   * Code required to start the app
+   *
+   * NOTE: To simplify this codelab, we've used localStorage.
+   *   localStorage is a synchronous API and has serious performance
+   *   implications. It should not be used in production applications!
+   *   Instead, check out IDB (https://www.npmjs.com/package/idb) or
+   *   SimpleDB (https://gist.github.com/inexorabletash/c8069c042b734519680c)
+   ************************************************************************/
 
+  app.selectedCities = localStorage.selectedCities;
+  if (app.selectedCities) {
+    app.selectedCities = JSON.parse(app.selectedCities);
+    app.selectedCities.forEach(function(city) {
+      app.getForecast(city.key, city.label);
+    });
+  } else {
+    app.updateForecastCard(initialWeatherForecast);
+    app.selectedCities = [
+      {key: initialWeatherForecast.key, label: initialWeatherForecast.label}
+    ];
+    app.saveSelectedCities();
+  }
 
-      // Save list of cities to localStorage.
-     app.saveSelectedCities = function() {
-       var selectedCities = JSON.stringify(app.selectedCities);
-       localStorage.selectedCities = selectedCities;
-     };
-
-   app.selectedCities = localStorage.selectedCities;
-   if (app.selectedCities) {
-     app.selectedCities = JSON.parse(app.selectedCities);
-     app.selectedCities.forEach(function(city) {
-       app.getForecast(city.key, city.label);
-     });
-   } else {
-     app.updateForecastCard(initialWeatherForecast);
-     app.selectedCities = [
-       {key: initialWeatherForecast.key, label: initialWeatherForecast.label}
-     ];
-     app.saveSelectedCities();
-   }
-
-
-
-   if ('serviceWorker' in navigator) {
-     navigator.serviceWorker
-              .register('./service-worker.js')
-              .then(function() { console.log('Service Worker Registered'); });
-   }
-
+  if('serviceWorker' in navigator) {
+    navigator.serviceWorker
+        .register('./service-worker.js')
+        .then(function() { console.log('Service Worker Registered'); });
+  }
 })();
